@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מחקר GenAI ב-BI | אוניברסיטת בן גוריון</title>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.27.0/plotly.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700&family=Heebo:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{direction:rtl;text-align:right;font-family:'Assistant','Heebo',sans-serif;background:#f1f5f9;min-height:100vh;color:#1e293b}
+h1,h2,h3,h4{font-family:'Heebo',sans-serif;color:#1e293b}
+
+/* ── pages ── */
+.page{display:none;min-height:100vh}
+.page.active{display:flex}
+
+/* ── INTRO ── */
+#page-intro{align-items:center;justify-content:center;padding:2rem}
+.intro-card{background:#fff;border:1px solid #e2e8f0;border-radius:22px;padding:44px;box-shadow:0 8px 40px rgba(0,0,0,.1);max-width:520px;width:100%}
+.intro-icon{text-align:center;font-size:52px;margin-bottom:10px}
+.intro-card h2{text-align:center;font-size:24px;margin-bottom:4px}
+.intro-card .sub{text-align:center;color:#94a3b8;font-size:13px;margin-bottom:28px}
+.intro-card p{color:#475569;font-size:14px;line-height:1.75;margin-bottom:24px}
+.intro-card label{display:block;color:#475569;font-size:13px;font-weight:600;margin-bottom:6px}
+.intro-card input[type=text]{width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;font-family:'Assistant',sans-serif;background:#f8fafc;color:#1e293b;outline:none;transition:border .2s}
+.intro-card input[type=text]:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+.btn-primary{display:block;width:100%;padding:12px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;font-family:'Assistant',sans-serif;cursor:pointer;margin-top:14px;transition:all .2s}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 5px 15px rgba(37,99,235,.4)}
+.error-msg{background:#fef2f2;border:1px solid #fecaca;color:#dc2626;border-radius:8px;padding:10px 14px;font-size:13px;margin-top:10px;display:none}
+
+/* ── DASHBOARD ── */
+#page-dashboard{flex-direction:row;height:100vh;overflow:hidden}
+.dash-col{flex:3.1;overflow-y:auto;padding:14px 12px 14px 6px}
+.task-col{flex:1;overflow-y:auto;padding:14px 6px 14px 12px;min-width:280px;max-width:320px}
+
+/* dash header */
+.dash-header{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px 20px;margin-bottom:12px;box-shadow:0 2px 6px rgba(0,0,0,.04)}
+.dash-header h2{font-size:20px;margin-bottom:2px}
+.dash-header .meta{font-size:12px;color:#94a3b8}
+
+/* filters */
+.filter-section{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px 16px;margin-bottom:10px;box-shadow:0 2px 6px rgba(0,0,0,.04)}
+.filter-section summary{font-size:13px;font-weight:700;color:#475569;cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px}
+.filter-section summary::before{content:"▾";transition:transform .2s}
+details[open] summary::before{transform:rotate(180deg)}
+.filter-grid{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;margin-top:12px;align-items:end}
+.filter-group label{display:block;font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px}
+.filter-group select{width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;font-family:'Assistant',sans-serif;background:#f8fafc;color:#1e293b;outline:none}
+.filter-group select:focus{border-color:#2563eb}
+.filter-btns{display:flex;flex-direction:column;gap:6px}
+.btn-sm{padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;font-family:'Assistant',sans-serif;cursor:pointer;border:none;transition:all .15s}
+.btn-apply{background:#2563eb;color:#fff}
+.btn-apply:hover{background:#1d4ed8}
+.btn-reset{background:#f8fafc;color:#475569;border:1px solid #e2e8f0}
+.btn-reset:hover{background:#f1f5f9}
+.active-filters{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:8px 14px;margin-bottom:10px;font-size:12px;color:#1d4ed8;display:none}
+
+/* KPIs */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:10px}
+.kpi-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px 16px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.kpi-label{color:#64748b;font-size:11px;font-weight:700;letter-spacing:.3px;margin-bottom:4px}
+.kpi-value{color:#1e293b;font-size:22px;font-weight:800;line-height:1}
+.kpi-delta{font-size:11px;margin-top:3px}
+.kpi-delta.neg{color:#ef4444}
+.kpi-delta.pos{color:#22c55e}
+
+/* chart cards */
+.charts-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.chart-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px 14px 8px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+.chart-full{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px 14px 8px;box-shadow:0 2px 8px rgba(0,0,0,.05);margin-bottom:10px}
+.chart-title{font-size:13px;font-weight:700;color:#1e293b;margin-bottom:1px}
+.chart-sub{font-size:11px;color:#94a3b8;margin-bottom:6px}
+.drill-btn{margin-top:4px;padding:4px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;font-family:'Assistant',sans-serif;color:#475569;cursor:pointer;transition:all .15s}
+.drill-btn:hover{background:#eff6ff;color:#2563eb;border-color:#bfdbfe}
+
+/* ── TASK PANEL ── */
+.question-panel{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;box-shadow:0 4px 16px rgba(0,0,0,.07);height:calc(100vh - 28px);overflow-y:auto;display:flex;flex-direction:column}
+.group-badge{display:inline-block;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;margin-bottom:8px}
+.badge-a{background:#dcfce7;color:#15803d;border:1px solid #86efac}
+.badge-b{background:#fef9c3;color:#a16207;border:1px solid #fde047}
+.q-meta{color:#94a3b8;font-size:12px;margin-bottom:6px}
+progress{width:100%;height:6px;border-radius:10px;margin-bottom:12px;accent-color:#2563eb}
+.q-card{background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:13px 15px;margin-bottom:12px}
+.q-card p{color:#1e40af;font-size:13px;line-height:1.65;font-weight:600}
+.radio-group{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.radio-opt{display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid #e2e8f0;border-radius:9px;cursor:pointer;transition:all .15s;background:#f8fafc}
+.radio-opt:hover{border-color:#93c5fd;background:#eff6ff}
+.radio-opt.selected{border-color:#2563eb;background:#eff6ff}
+.radio-opt input{accent-color:#2563eb;width:15px;height:15px;cursor:pointer}
+.radio-opt span{font-size:13px;color:#334155}
+textarea.answer{width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;font-family:'Assistant',sans-serif;background:#f8fafc;color:#1e293b;resize:vertical;outline:none;min-height:100px;margin-bottom:12px}
+textarea.answer:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.btn-next{width:100%;padding:11px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;font-family:'Assistant',sans-serif;cursor:pointer;transition:all .2s}
+.btn-next:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(37,99,235,.4)}
+.warn{background:#fef9c3;border:1px solid #fde047;color:#a16207;border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:8px;display:none}
+
+/* AI chat */
+.ai-divider{border:none;border-top:1px solid #e2e8f0;margin:14px 0}
+.ai-header{color:#2563eb;font-weight:700;font-size:13px;margin-bottom:2px}
+.ai-sub{color:#94a3b8;font-size:11px;margin-bottom:8px}
+.chat-messages{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:8px;max-height:260px}
+.chat-msg{padding:9px 12px;border-radius:10px;font-size:12px;line-height:1.55}
+.chat-user{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;align-self:flex-end;max-width:90%}
+.chat-ai{background:#f8fafc;border:1px solid #e2e8f0;color:#334155;align-self:flex-start;max-width:95%}
+.chat-input-row{display:flex;gap:6px}
+.chat-input-row input{flex:1;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;font-family:'Assistant',sans-serif;background:#f8fafc;color:#1e293b;outline:none}
+.chat-input-row input:focus{border-color:#2563eb}
+.chat-send{padding:8px 14px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;font-family:'Assistant',sans-serif;cursor:pointer}
+.chat-send:hover{background:#1d4ed8}
+.chat-thinking{color:#94a3b8;font-size:12px;font-style:italic;padding:6px 0}
+
+/* ── SUMMARY ── */
+#page-summary{align-items:flex-start;justify-content:center;padding:2rem;flex-direction:column}
+.summary-wrap{max-width:860px;width:100%;margin:0 auto}
+.summary-hero{background:#fff;border:1px solid #e2e8f0;border-radius:22px;padding:40px;box-shadow:0 8px 40px rgba(0,0,0,.1);text-align:center;margin-bottom:20px}
+.summary-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.summary-table{background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.summary-table table{width:100%;border-collapse:collapse;font-size:13px}
+.summary-table th{background:#f8fafc;padding:10px 14px;color:#64748b;font-weight:700;font-size:11px;text-align:right;border-bottom:1px solid #e2e8f0}
+.summary-table td{padding:9px 14px;border-bottom:1px solid #f1f5f9;color:#334155}
+.summary-table tr:last-child td{border-bottom:none}
+.btn-download{display:block;width:100%;padding:13px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;font-family:'Assistant',sans-serif;cursor:pointer;margin-top:14px;text-align:center;text-decoration:none;transition:all .2s}
+.btn-download:hover{transform:translateY(-1px);box-shadow:0 5px 15px rgba(37,99,235,.4)}
+
+/* loading overlay */
+#loading{position:fixed;inset:0;background:#f1f5f9;display:flex;align-items:center;justify-content:center;z-index:999;flex-direction:column;gap:12px}
+#loading p{color:#64748b;font-size:14px}
+.spinner{width:36px;height:36px;border:3px solid #e2e8f0;border-top-color:#2563eb;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading">
+  <div class="spinner"></div>
+  <p>טוען נתונים...</p>
+</div>
+
+<!-- ══════════════════════════════════════
+     PAGE: INTRO
+══════════════════════════════════════ -->
+<div id="page-intro" class="page">
+  <div class="intro-card">
+    <div class="intro-icon">🎓</div>
+    <h2>ניסוי GenAI ב-BI</h2>
+    <p class="sub">מחקר | אוניברסיטת בן גוריון בנגב</p>
+    <p>ברוכים הבאים! בניסוי זה תבצעו סדרת משימות ניתוח נתונים באמצעות דשבורד אינטראקטיבי של נתוני לקוחות.<br><br>
+    <strong>הזינו את קוד המשתתף שקיבלתם מהחוקר.</strong></p>
+    <label>קוד משתתף:</label>
+    <input type="text" id="pid-input" placeholder="לדוגמה: BGU001" autocomplete="off">
+    <div class="error-msg" id="pid-error"></div>
+    <button class="btn-primary" onclick="startExperiment()">התחל ניסוי ▶</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     PAGE: DASHBOARD
+══════════════════════════════════════ -->
+<div id="page-dashboard" class="page">
+
+  <!-- Left: Dashboard -->
+  <div class="dash-col" id="dash-col">
+
+    <div class="dash-header">
+      <h2>📊 מערכת ניתוח לקוחות ורווחיות</h2>
+      <p class="meta" id="dash-meta"></p>
+    </div>
+
+    <!-- Filters -->
+    <details class="filter-section" id="filter-details">
+      <summary>🔽 פילטרים גלובליים — החל על כל הגרפים</summary>
+      <div class="filter-grid">
+        <div class="filter-group">
+          <label>תעשייה</label>
+          <select id="f-industry" multiple size="3"></select>
+        </div>
+        <div class="filter-group">
+          <label>מדינה</label>
+          <select id="f-country" multiple size="3"></select>
+        </div>
+        <div class="filter-group">
+          <label>חבילה</label>
+          <select id="f-plan" multiple size="3">
+            <option value="Basic">Basic</option>
+            <option value="Pro">Pro</option>
+            <option value="Enterprise">Enterprise</option>
+          </select>
+        </div>
+        <div class="filter-btns">
+          <button class="btn-sm btn-apply" onclick="applyFilters()">✅ החל</button>
+          <button class="btn-sm btn-reset" onclick="resetFilters()">↺ אפס</button>
+        </div>
+      </div>
+    </details>
+
+    <div class="active-filters" id="active-filters"></div>
+
+    <!-- KPIs -->
+    <div class="kpi-row" id="kpi-row"></div>
+
+    <!-- Charts row 1 -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">🌍 לקוחות ונטישה לפי מדינה</div>
+        <div class="chart-sub">כמות לקוחות, נטישות ואחוז נטישה</div>
+        <div id="chart-country" style="height:220px"></div>
+        <button class="drill-btn" onclick="recordClick('country_drill')">🔍 Drill-Down גאוגרפי</button>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🏭 סיבות נטישה לפי תעשייה</div>
+        <div class="chart-sub">חלוקת סיבות הנטישה לפי ענף</div>
+        <div id="chart-reason" style="height:220px"></div>
+        <button class="drill-btn" onclick="recordClick('reason_drill')">🔍 נתח סיבות</button>
+      </div>
+    </div>
+
+    <!-- Charts row 2 -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">📈 מגמת נטישה חודשית</div>
+        <div class="chart-sub">נטישות לאורך זמן + ממוצע נע 3 חודשים</div>
+        <div id="chart-trend" style="height:220px"></div>
+        <button class="drill-btn" onclick="recordClick('trend_drill')">🔍 חקור מגמות</button>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🎯 CSAT מול תקלות</div>
+        <div class="chart-sub">פיזור לקוחות לפי שביעות רצון ותקלות</div>
+        <div id="chart-csat" style="height:220px"></div>
+        <button class="drill-btn" onclick="recordClick('csat_drill')">🔍 נתח CSAT</button>
+      </div>
+    </div>
+
+    <!-- Charts row 3 -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">💰 MRR פעיל לפי תעשייה</div>
+        <div class="chart-sub">הכנסה חודשית מסכמת לפי ענף</div>
+        <div id="chart-mrr" style="height:220px"></div>
+        <button class="drill-btn" onclick="recordClick('mrr_drill')">🔍 נתח הכנסות</button>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">📦 שימוש במוצר לפי חבילה</div>
+        <div class="chart-sub">התפלגות usage count — Basic / Pro / Enterprise</div>
+        <div id="chart-usage" style="height:220px"></div>
+        <button class="drill-btn" onclick="recordClick('usage_drill')">🔍 נתח שימוש</button>
+      </div>
+    </div>
+
+    <!-- Charts row 4 -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">💳 נטישה לפי חבילה</div>
+        <div class="chart-sub">כמות ואחוז נטישה לפי סוג מנוי</div>
+        <div id="chart-plan" style="height:220px"></div>
+        <button class="drill-btn" onclick="recordClick('plan_drill')">🔍 נתח חבילות</button>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">📣 נטישה לפי מקור הגעה</div>
+        <div class="chart-sub">איזה ערוץ גיוס מוביל לנטישה גבוהה יותר</div>
+        <div id="chart-referral" style="height:220px"></div>
+        <button class="drill-btn" onclick="recordClick('referral_drill')">🔍 נתח מקורות</button>
+      </div>
+    </div>
+
+    <!-- Heatmap full width -->
+    <div class="chart-full">
+      <div class="chart-title">🌡️ Heatmap — מדינה × סיבת נטישה</div>
+      <div class="chart-sub">ריכוז נטישות לפי שילוב מדינה וסיבה</div>
+      <div id="chart-heatmap" style="height:280px"></div>
+      <button class="drill-btn" onclick="recordClick('heatmap_drill')">🔍 נתח Heatmap</button>
+    </div>
+
+  </div><!-- /dash-col -->
+
+  <!-- Right: Task panel -->
+  <div class="task-col">
+    <div class="question-panel" id="question-panel">
+      <!-- filled by JS -->
+    </div>
+  </div>
+
+</div><!-- /page-dashboard -->
+
+<!-- ══════════════════════════════════════
+     PAGE: SUMMARY
+══════════════════════════════════════ -->
+<div id="page-summary" class="page">
+  <div class="summary-wrap">
+    <div class="summary-hero">
+      <div style="font-size:54px;margin-bottom:10px">🎉</div>
+      <h2 style="color:#15803d;margin-bottom:6px">הניסוי הסתיים בהצלחה!</h2>
+      <p id="summary-thanks" style="color:#64748b;margin-top:8px"></p>
+    </div>
+    <div class="summary-kpi" id="summary-kpi"></div>
+    <div class="summary-table">
+      <table id="summary-table">
+        <thead>
+          <tr>
+            <th>#</th><th>שאלה</th><th>תשובה</th><th>נכון</th><th>זמן (שנ')</th><th>שאלות AI</th>
+          </tr>
+        </thead>
+        <tbody id="summary-tbody"></tbody>
+      </table>
+    </div>
+    <button class="btn-download" onclick="downloadCSV()">📥 הורד קובץ CSV (שלח לחוקר)</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  CONFIG
+// ══════════════════════════════════════════════════════
+const DATA_URL = "https://raw.githubusercontent.com/SapirGabay/Finsl_project_experiment/refs/heads/main/data.csv";
+const GEMINI_API_KEY = "AIzaSyD5xUOAQJG6R3LITJoc-Lf_WLaTX3PA9qo";
+const GEMINI_MODEL   = "gemini-pro";
+
+// Google Apps Script webhook URL (set after creating Apps Script)
+const GSHEET_WEBHOOK = "https://script.google.com/macros/s/AKfycbxHLhOvuVB00X8y3024TNGwSbaG6Gpk1t6VpyWoTjgXefbbAe4ZLGDVa7jOeZGpsEX8/exec";
+
+const VALID_CODES = new Set([...Array.from({length:50},(_,i)=>`BGU${String(i+1).padStart(3,'0')}`)]);
+
+// ══════════════════════════════════════════════════════
+//  QUESTIONS
+// ══════════════════════════════════════════════════════
+const QUESTIONS = [
+  {q:"באיזו מדינה יש לחברה את כמות הלקוחות הגבוהה ביותר?",options:["US","UK","IN","CA"],ans:"US",type:"multiple"},
+  {q:"לאחר סינון תעשיית ה-FinTech, מהו אחוז הנטישה?",options:["15.2%","22.8%","30.3%","10.5%"],ans:"22.8%",type:"multiple"},
+  {q:"מהו ה-MRR (הכנסה חודשית) הכולל של הלקוחות הפעילים?",options:["$10,500,000","$13,082,473","$15,200,000","$8,900,000"],ans:"$13,082,473",type:"multiple"},
+  {q:"כמה לקוחות נטשו את המערכת במהלך חודש יולי 2024?",options:["120","250","348","415"],ans:"348",type:"multiple"},
+  {q:"באילו שתי מדינות כמות נטישות ה-Pricing הגבוהה ביותר?",options:["US ו-IN","CA ו-UK","AU ו-DE","FR ו-UK"],ans:"US ו-IN",type:"multiple"},
+  {q:"מבין הלקוחות שנטשו בגלל Support, איזו תעשייה בולטת ביותר?",options:["EdTech","FinTech","DevTools","HealthTech"],ans:"DevTools",type:"multiple"},
+  {q:"האם לקוחות עם ציון CSAT נמוך מ-3.5 חווים יותר תקלות (Total Errors) בממוצע?",options:["כן","לא"],ans:"כן",type:"multiple"},
+  {q:"מהו אחוז הנטישה של לקוחות Pro בתעשיית ה-Cybersecurity?",options:["12.5%","19.4%","25.1%","31.0%"],ans:"19.4%",type:"multiple"},
+  {q:"באיזו מדינה ממוצע התקלות ללקוח (Total Errors) הוא הגבוה ביותר?",options:["DE","US","FR","AU"],ans:"FR",type:"multiple"},
+  {q:"מהו אחוז אובדן ההכנסה (Churned MRR) מתוך כלל ה-MRR הפוטנציאלי?",options:["10.5%","20.9%","30.5%","15.3%"],ans:"20.9%",type:"multiple"},
+  {q:"בהינתן הממוצע ההיסטורי ב-US, כמה לקוחות צפויים לנטוש שם בחודש הבא?",options:["~15","~40","~80","~120"],ans:"~40",type:"multiple"},
+  {q:"באיזו תעשייה כדאי להשקיע תקציב שימור כדי להציל את ה-MRR הגבוה ביותר? נמק.",type:"open"},
+  {q:"לאור הקשר בין תקלות (Total Errors) לנטישה, איזו המלצה אופרטיבית תיתן למנהל המוצר?",type:"open"},
+  {q:"ציין תובנה אחת מפתיעה שגילית בדשבורד (שלא נשאלת עליה ישירות).",type:"open"},
+  {q:"האם כלי ה-AI עזר לך לקבל החלטות מהירות ואיכותיות יותר? הסבר.",type:"open"},
+];
+
+// ══════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════
+let STATE = {
+  page: 'intro',
+  participantId: '',
+  group: '',
+  currentQ: 0,
+  logs: [],
+  tempClicks: {},
+  aiQueriesThisQ: 0,
+  qStartTime: Date.now(),
+  chatHistory: [],
+  filters: {industry:[], country:[], plan:[]},
+  rawData: [],
+  filteredData: [],
+};
+
+// ══════════════════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const resp = await fetch(DATA_URL);
+    const text = await resp.text();
+    const parsed = Papa.parse(text, {header:true, dynamicTyping:true, skipEmptyLines:true});
+    STATE.rawData = parsed.data;
+    STATE.filteredData = [...STATE.rawData];
+    populateFilterOptions();
+    document.getElementById('loading').style.display='none';
+    showPage('intro');
+  } catch(e) {
+    document.getElementById('loading').innerHTML = `<p style="color:#dc2626">שגיאה בטעינת הנתונים: ${e.message}</p>`;
+  }
+});
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  STATE.page = name;
+}
+
+// ══════════════════════════════════════════════════════
+//  INTRO
+// ══════════════════════════════════════════════════════
+function startExperiment() {
+  const pid = document.getElementById('pid-input').value.trim().toUpperCase();
+  const err = document.getElementById('pid-error');
+  if (!pid) { showError(err,'יש להזין קוד משתתף.'); return; }
+  if (!VALID_CODES.has(pid)) { showError(err,'קוד לא תקף — פנה לחוקר.'); return; }
+  err.style.display='none';
+  STATE.participantId = pid;
+  STATE.group = Math.random()<0.5 ? 'A (עם AI)' : 'B (בלי AI)';
+  STATE.qStartTime = Date.now();
+  document.getElementById('dash-meta').textContent =
+    `משתתף: ${STATE.participantId} | קבוצה: ${STATE.group}`;
+  showPage('dashboard');
+  renderAllCharts();
+  renderQuestion();
+}
+function showError(el,msg){el.textContent=msg;el.style.display='block'}
+
+// ══════════════════════════════════════════════════════
+//  FILTERS
+// ══════════════════════════════════════════════════════
+function populateFilterOptions() {
+  const industries = [...new Set(STATE.rawData.map(r=>r.industry).filter(Boolean))].sort();
+  const countries  = [...new Set(STATE.rawData.map(r=>r.country).filter(Boolean))].sort();
+  const sel = (id, opts) => {
+    const s = document.getElementById(id);
+    opts.forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; s.appendChild(o); });
+  };
+  sel('f-industry', industries);
+  sel('f-country', countries);
+}
+function getSelected(id){ return [...document.getElementById(id).selectedOptions].map(o=>o.value); }
+function applyFilters() {
+  STATE.filters.industry = getSelected('f-industry');
+  STATE.filters.country  = getSelected('f-country');
+  STATE.filters.plan     = getSelected('f-plan');
+  STATE.filteredData = STATE.rawData.filter(r=>{
+    if(STATE.filters.industry.length && !STATE.filters.industry.includes(r.industry)) return false;
+    if(STATE.filters.country.length  && !STATE.filters.country.includes(r.country))  return false;
+    if(STATE.filters.plan.length     && !STATE.filters.plan.includes(r.plan_tier_x)) return false;
+    return true;
+  });
+  updateActiveFiltersBar();
+  renderAllCharts();
+  document.getElementById('filter-details').open=false;
+}
+function resetFilters() {
+  ['f-industry','f-country','f-plan'].forEach(id=>{
+    const s=document.getElementById(id);
+    [...s.options].forEach(o=>o.selected=false);
+  });
+  STATE.filters={industry:[],country:[],plan:[]};
+  STATE.filteredData=[...STATE.rawData];
+  updateActiveFiltersBar();
+  renderAllCharts();
+}
+function updateActiveFiltersBar() {
+  const el = document.getElementById('active-filters');
+  const parts=[];
+  if(STATE.filters.industry.length) parts.push(`תעשייה: ${STATE.filters.industry.join(', ')}`);
+  if(STATE.filters.country.length)  parts.push(`מדינה: ${STATE.filters.country.join(', ')}`);
+  if(STATE.filters.plan.length)     parts.push(`חבילה: ${STATE.filters.plan.join(', ')}`);
+  if(parts.length){
+    const pct = (STATE.filteredData.length/STATE.rawData.length*100).toFixed(0);
+    el.style.display='block';
+    el.innerHTML=`🔵 <b>פילטרים פעילים:</b> ${parts.join(' | ')} — <b>${STATE.filteredData.length.toLocaleString()}</b> רשומות (${pct}%)`;
+  } else { el.style.display='none'; }
+}
+
+// ══════════════════════════════════════════════════════
+//  CHART HELPERS
+// ══════════════════════════════════════════════════════
+const LIGHT = {paper_bgcolor:'#ffffff',plot_bgcolor:'#ffffff',
+  font:{color:'#334155',family:'Assistant',size:11},
+  margin:{t:8,b:30,l:36,r:36}};
+const AX = {gridcolor:'#f1f5f9',linecolor:'#e2e8f0',tickfont:{size:11}};
+const CFG = {responsive:true,displayModeBar:false};
+
+function groupBy(data, key, agg) {
+  const map={};
+  data.forEach(r=>{
+    const k=r[key]; if(k===undefined||k===null) return;
+    if(!map[k]) map[k]={_count:0};
+    map[k]._count++;
+    if(agg) agg(map[k],r);
+  });
+  return map;
+}
+
+function renderAllCharts() {
+  const df = STATE.filteredData;
+  updateKPIs(df);
+  chartCountry(df);
+  chartReason(df);
+  chartTrend(df);
+  chartCsat(df);
+  chartMrr(df);
+  chartUsage(df);
+  chartPlan(df);
+  chartReferral(df);
+  chartHeatmap(df);
+}
+
+function updateKPIs(df) {
+  const churned = df.filter(r=>r.churn_flag_x==1||r.churn_flag_x===true||r.churn_flag_x==='true'||r.churn_flag_x==='1');
+  const active  = df.filter(r=>!(r.churn_flag_x==1||r.churn_flag_x===true||r.churn_flag_x==='true'||r.churn_flag_x==='1'));
+  const unique  = new Set(df.map(r=>r.account_id)).size;
+  const churnRate = df.length ? (churned.length/df.length*100).toFixed(1) : 0;
+  const activeMRR = active.reduce((s,r)=>s+(+r.mrr_amount||0),0);
+  const churnMRR  = churned.reduce((s,r)=>s+(+r.mrr_amount||0),0);
+  const totalMRR  = df.reduce((s,r)=>s+(+r.mrr_amount||0),0);
+  const csatVals  = df.map(r=>+r.avg_csat).filter(v=>!isNaN(v)&&v>0);
+  const avgCsat   = csatVals.length ? (csatVals.reduce((a,b)=>a+b,0)/csatVals.length).toFixed(2) : '—';
+
+  document.getElementById('kpi-row').innerHTML=`
+    <div class="kpi-card"><div class="kpi-label">לקוחות ייחודיים</div><div class="kpi-value">${unique.toLocaleString()}</div></div>
+    <div class="kpi-card"><div class="kpi-label">% נטישה</div><div class="kpi-value">${churnRate}%</div><div class="kpi-delta neg">-${churned.length.toLocaleString()}</div></div>
+    <div class="kpi-card"><div class="kpi-label">MRR פעיל</div><div class="kpi-value">$${(activeMRR/1e6).toFixed(2)}M</div></div>
+    <div class="kpi-card"><div class="kpi-label">CSAT ממוצע</div><div class="kpi-value">${avgCsat}</div></div>
+    <div class="kpi-card"><div class="kpi-label">MRR אבוד</div><div class="kpi-value">$${(churnMRR/1e6).toFixed(2)}M</div><div class="kpi-delta neg">${totalMRR?(churnMRR/totalMRR*100).toFixed(1):0}%</div></div>
+  `;
+}
+
+function isChurned(r){ return r.churn_flag_x==1||r.churn_flag_x===true||r.churn_flag_x==='true'||r.churn_flag_x==='1'; }
+
+function chartCountry(df) {
+  const map={};
+  df.forEach(r=>{
+    const c=r.country||'?';
+    if(!map[c]) map[c]={total:0,churned:0};
+    map[c].total++;
+    if(isChurned(r)) map[c].churned++;
+  });
+  const countries=Object.keys(map).sort((a,b)=>map[b].total-map[a].total);
+  const totals=countries.map(c=>map[c].total);
+  const churns=countries.map(c=>map[c].churned);
+  const rates=countries.map(c=>(map[c].churned/map[c].total*100).toFixed(1));
+  Plotly.newPlot('chart-country',[
+    {type:'bar',x:countries,y:totals,name:'סה"כ לקוחות',marker:{color:'#3b82f6',opacity:.85}},
+    {type:'bar',x:countries,y:churns,name:'נטשו',marker:{color:'#ef4444',opacity:.85}},
+    {type:'scatter',x:countries,y:rates,name:'% נטישה',mode:'lines+markers',yaxis:'y2',
+      line:{color:'#f59e0b',width:2},marker:{color:'#f59e0b',size:7}},
+  ],{...LIGHT,barmode:'group',
+    yaxis:{...AX,title:'לקוחות'},
+    yaxis2:{title:'% נטישה',overlaying:'y',side:'right',color:'#f59e0b',range:[0,55],showgrid:false,tickfont:{color:'#f59e0b',size:11}},
+    legend:{orientation:'h',y:1.05,font:{size:10}},showlegend:true},CFG);
+}
+
+function chartReason(df) {
+  const ch=df.filter(r=>isChurned(r)&&r.reason_code&&r.reason_code!=='Active');
+  const map={};
+  ch.forEach(r=>{
+    const ind=r.industry||'?', rs=r.reason_code||'?';
+    if(!map[ind]) map[ind]={};
+    map[ind][rs]=(map[ind][rs]||0)+1;
+  });
+  const industries=[...new Set(ch.map(r=>r.industry))].filter(Boolean);
+  const reasons=[...new Set(ch.map(r=>r.reason_code))].filter(Boolean);
+  const colors={budget:'#3b82f6',competitor:'#f97316',features:'#eab308',pricing:'#ef4444',support:'#8b5cf6',unknown:'#94a3b8'};
+  const traces=reasons.map(rs=>({
+    type:'bar', name:rs, x:industries, y:industries.map(ind=>(map[ind]||{})[rs]||0),
+    marker:{color:colors[rs]||'#94a3b8'}
+  }));
+  Plotly.newPlot('chart-reason',traces,{...LIGHT,barmode:'stack',
+    yaxis:{...AX,title:'נטישות'},xaxis:{...AX},
+    legend:{orientation:'h',y:1.05,font:{size:10}}},CFG);
+}
+
+function chartTrend(df) {
+  const ch=df.filter(r=>isChurned(r)&&r.churn_date);
+  const map={};
+  ch.forEach(r=>{
+    const d=new Date(r.churn_date);
+    if(isNaN(d)) return;
+    const ym=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    map[ym]=(map[ym]||0)+1;
+  });
+  const months=Object.keys(map).sort().slice(-20);
+  const counts=months.map(m=>map[m]);
+  const ma3=counts.map((_,i)=>{
+    const sl=counts.slice(Math.max(0,i-2),i+1);
+    return +(sl.reduce((a,b)=>a+b,0)/sl.length).toFixed(1);
+  });
+  Plotly.newPlot('chart-trend',[
+    {type:'scatter',x:months,y:counts,fill:'tozeroy',fillcolor:'rgba(59,130,246,.1)',
+      line:{color:'#3b82f6',width:2},mode:'lines+markers',marker:{size:5},name:'נטישות'},
+    {type:'scatter',x:months,y:ma3,line:{color:'#f59e0b',width:2,dash:'dot'},mode:'lines',name:'ממוצע נע 3 חודשים'},
+  ],{...LIGHT,yaxis:{...AX,title:'נטישות'},xaxis:{...AX,tickangle:-40},
+    legend:{orientation:'h',y:1.05,font:{size:10}}},CFG);
+}
+
+function chartCsat(df) {
+  const sample=df.filter(r=>r.avg_csat!=null&&!isNaN(+r.avg_csat)).slice(0,600);
+  const churned_s=sample.filter(r=>isChurned(r));
+  const active_s=sample.filter(r=>!isChurned(r));
+  const trace=(data,name,color)=>({
+    type:'scatter',mode:'markers',name,
+    x:data.map(r=>+r.avg_csat),y:data.map(r=>+r.total_errors||0),
+    marker:{color,opacity:.6,size:data.map(r=>Math.min(20,Math.max(4,(+r.mrr_amount||0)/500)))}
+  });
+  // trendline
+  const xs=sample.map(r=>+r.avg_csat), ys=sample.map(r=>+r.total_errors||0);
+  const n=xs.length, sx=xs.reduce((a,b)=>a+b,0), sy=ys.reduce((a,b)=>a+b,0);
+  const sxy=xs.reduce((a,b,i)=>a+b*ys[i],0), sx2=xs.reduce((a,b)=>a+b*b,0);
+  const slope=(n*sxy-sx*sy)/(n*sx2-sx*sx), intercept=(sy-slope*sx)/n;
+  const minX=Math.min(...xs), maxX=Math.max(...xs);
+  Plotly.newPlot('chart-csat',[
+    trace(active_s,'פעיל','#3b82f6'),
+    trace(churned_s,'נטש','#ef4444'),
+    {type:'scatter',mode:'lines',x:[minX,maxX],y:[slope*minX+intercept,slope*maxX+intercept],
+      line:{color:'#64748b',width:1.5,dash:'dash'},name:'קו מגמה'},
+  ],{...LIGHT,xaxis:{...AX,title:'CSAT'},yaxis:{...AX,title:'תקלות'},
+    legend:{orientation:'h',y:1.05,font:{size:10}}},CFG);
+}
+
+function chartMrr(df) {
+  const active=df.filter(r=>!isChurned(r));
+  const map={};
+  active.forEach(r=>{ const ind=r.industry||'?'; map[ind]=(map[ind]||0)+(+r.mrr_amount||0); });
+  const inds=Object.keys(map).sort((a,b)=>map[a]-map[b]);
+  Plotly.newPlot('chart-mrr',[{
+    type:'bar',orientation:'h',x:inds.map(i=>map[i]),y:inds,
+    marker:{color:'#3b82f6',opacity:.85},
+    text:inds.map(i=>'$'+(map[i]/1000).toFixed(0)+'K'),textposition:'outside',
+  }],{...LIGHT,xaxis:{...AX,title:'MRR ($)'},yaxis:{...AX},showlegend:false},CFG);
+}
+
+function chartUsage(df) {
+  const plans=['Basic','Pro','Enterprise'];
+  const colors={Basic:'#94a3b8',Pro:'#3b82f6',Enterprise:'#7c3aed'};
+  const traces=plans.map(p=>({
+    type:'box',name:p,
+    y:df.filter(r=>r.plan_tier_x===p).map(r=>+r.total_usage_count||0),
+    marker:{color:colors[p]},boxmean:true,line:{width:1.5},
+  }));
+  Plotly.newPlot('chart-usage',traces,{...LIGHT,
+    yaxis:{...AX,title:'שימושים'},xaxis:{...AX},
+    legend:{orientation:'h',y:1.05,font:{size:10}}},CFG);
+}
+
+function chartPlan(df) {
+  const plans=['Basic','Pro','Enterprise'];
+  const map={};
+  df.forEach(r=>{ const p=r.plan_tier_x||'?'; if(!map[p]) map[p]={total:0,churned:0}; map[p].total++; if(isChurned(r)) map[p].churned++; });
+  Plotly.newPlot('chart-plan',[
+    {type:'bar',x:plans,y:plans.map(p=>(map[p]||{}).total||0),name:'סה"כ',marker:{color:'#6366f1',opacity:.8}},
+    {type:'bar',x:plans,y:plans.map(p=>(map[p]||{}).churned||0),name:'נטשו',marker:{color:'#ec4899',opacity:.8}},
+    {type:'scatter',x:plans,y:plans.map(p=>{ const m=map[p]||{total:1,churned:0}; return +(m.churned/m.total*100).toFixed(1); }),
+      name:'% נטישה',mode:'lines+markers',yaxis:'y2',line:{color:'#10b981',width:2},marker:{color:'#10b981',size:8}},
+  ],{...LIGHT,barmode:'group',
+    yaxis:{...AX,title:'לקוחות'},
+    yaxis2:{title:'% נטישה',overlaying:'y',side:'right',color:'#10b981',range:[0,45],showgrid:false,tickfont:{color:'#10b981',size:11}},
+    legend:{orientation:'h',y:1.05,font:{size:10}}},CFG);
+}
+
+function chartReferral(df) {
+  const map={};
+  df.forEach(r=>{ const s=r.referral_source||'?'; if(!map[s]) map[s]={total:0,churned:0}; map[s].total++; if(isChurned(r)) map[s].churned++; });
+  const sources=Object.keys(map).sort((a,b)=>{ const ra=map[a].churned/map[a].total, rb=map[b].churned/map[b].total; return ra-rb; });
+  const colors={event:'#ef4444',other:'#f97316',ads:'#eab308',organic:'#22c55e',partner:'#3b82f6'};
+  Plotly.newPlot('chart-referral',[{
+    type:'bar',orientation:'h',
+    x:sources.map(s=>+(map[s].churned/map[s].total*100).toFixed(1)),
+    y:sources,
+    marker:{color:sources.map(s=>colors[s]||'#94a3b8')},
+    text:sources.map(s=>(map[s].churned/map[s].total*100).toFixed(1)+'%'),textposition:'outside',
+  }],{...LIGHT,xaxis:{...AX,title:'% נטישה'},yaxis:{...AX},showlegend:false},CFG);
+}
+
+function chartHeatmap(df) {
+  const ch=df.filter(r=>isChurned(r)&&r.reason_code&&r.reason_code!=='Active');
+  const countries=[...new Set(ch.map(r=>r.country))].filter(Boolean).sort();
+  const reasons=[...new Set(ch.map(r=>r.reason_code))].filter(Boolean).sort();
+  const z=countries.map(c=>reasons.map(rs=>ch.filter(r=>r.country===c&&r.reason_code===rs).length));
+  Plotly.newPlot('chart-heatmap',[{
+    type:'heatmap',x:reasons,y:countries,z,colorscale:'Blues',
+    text:z.map(row=>row.map(v=>v.toString())),texttemplate:'%{text}',textfont:{size:11},
+  }],{...LIGHT,
+    xaxis:{...AX,title:'סיבת נטישה'},
+    yaxis:{...AX,title:'מדינה'},
+    coloraxis:{colorbar:{title:'נטישות',tickfont:{color:'#334155'}}}},CFG);
+}
+
+// ══════════════════════════════════════════════════════
+//  QUESTION PANEL
+// ══════════════════════════════════════════════════════
+function renderQuestion() {
+  const idx=STATE.currentQ;
+  const q=QUESTIONS[idx];
+  const isA=STATE.group.includes('A');
+  const grpCls=isA?'badge-a':'badge-b';
+
+  let answerHTML='';
+  if(q.type==='multiple'){
+    answerHTML=`<div class="radio-group" id="radio-group">
+      ${q.options.map((opt,i)=>`
+        <label class="radio-opt" id="opt-${i}" onclick="selectOpt(${i})">
+          <input type="radio" name="qans" value="${opt}"> <span>${opt}</span>
+        </label>`).join('')}
+    </div>`;
+  } else {
+    answerHTML=`<textarea class="answer" id="open-answer" placeholder="כתוב כאן..."></textarea>`;
+  }
+
+  const aiSection = isA ? `
+    <hr class="ai-divider">
+    <p class="ai-header">🤖 עוזר AI (Gemini)</p>
+    <p class="ai-sub">שאל שאלות על נתוני הדשבורד</p>
+    <div class="chat-messages" id="chat-messages"></div>
+    <div class="chat-input-row">
+      <input type="text" id="chat-input" placeholder="שאל את ה-AI..." onkeydown="if(event.key==='Enter')sendAI()">
+      <button class="chat-send" onclick="sendAI()">שלח</button>
+    </div>
+  ` : '';
+
+  document.getElementById('question-panel').innerHTML=`
+    <span class="group-badge ${grpCls}">${STATE.group}</span>
+    <p class="q-meta">משימה ${idx+1} / ${QUESTIONS.length}</p>
+    <progress value="${idx+1}" max="${QUESTIONS.length}"></progress>
+    <div class="q-card"><p>❓ ${q.q}</p></div>
+    ${answerHTML}
+    <div class="warn" id="warn-msg">יש לבחור / להזין תשובה.</div>
+    <button class="btn-next" onclick="submitAnswer()">אישור ➡️ שאלה הבאה</button>
+    ${aiSection}
+  `;
+
+  // re-render chat history
+  if(isA) renderChatHistory();
+}
+
+function selectOpt(i) {
+  document.querySelectorAll('.radio-opt').forEach((el,j)=>{
+    el.classList.toggle('selected',j===i);
+    el.querySelector('input').checked=(j===i);
+  });
+}
+
+function submitAnswer() {
+  const q=QUESTIONS[STATE.currentQ];
+  let ans='';
+  if(q.type==='multiple'){
+    const checked=document.querySelector('input[name="qans"]:checked');
+    if(!checked){ document.getElementById('warn-msg').style.display='block'; return; }
+    ans=checked.value;
+  } else {
+    ans=(document.getElementById('open-answer').value||'').trim();
+    if(!ans){ document.getElementById('warn-msg').style.display='block'; return; }
+  }
+  saveLog(ans);
+}
+
+function saveLog(ans) {
+  const q=QUESTIONS[STATE.currentQ];
+  const duration=((Date.now()-STATE.qStartTime)/1000).toFixed(2);
+  const isCorrect=(q.type==='multiple'&&ans===q.ans)?1:0;
+  const row={
+    Participant_ID:STATE.participantId,
+    Group:STATE.group,
+    Question_Index:STATE.currentQ+1,
+    Question_Text:q.q.slice(0,100),
+    Question_Type:q.type,
+    Answer:String(ans).slice(0,200),
+    Is_Correct:isCorrect,
+    Time_Spent_Sec:duration,
+    Graph_Clicks:JSON.stringify(STATE.tempClicks),
+    AI_Queries:STATE.aiQueriesThisQ,
+    Timestamp:new Date().toISOString(),
+  };
+  STATE.logs.push(row);
+  sendToGSheet(row);
+
+  STATE.currentQ++;
+  STATE.tempClicks={};
+  STATE.aiQueriesThisQ=0;
+  STATE.chatHistory=[];
+  STATE.qStartTime=Date.now();
+
+  if(STATE.currentQ>=QUESTIONS.length){ showSummary(); }
+  else { renderQuestion(); }
+}
+
+// ══════════════════════════════════════════════════════
+//  GOOGLE SHEETS WEBHOOK
+// ══════════════════════════════════════════════════════
+async function sendToGSheet(row) {
+  if(!GSHEET_WEBHOOK||GSHEET_WEBHOOK==='https://script.google.com/macros/s/AKfycbxHLhOvuVB00X8y3024TNGwSbaG6Gpk1t6VpyWoTjgXefbbAe4ZLGDVa7jOeZGpsEX8/exec') return;
+  try {
+    await fetch(GSHEET_WEBHOOK,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(row),
+      mode:'no-cors',
+    });
+  } catch(e){ console.warn('GSheet send failed',e); }
+}
+
+// ══════════════════════════════════════════════════════
+//  AI CHAT (Gemini)
+// ══════════════════════════════════════════════════════
+function renderChatHistory() {
+  const el=document.getElementById('chat-messages');
+  if(!el) return;
+  el.innerHTML=STATE.chatHistory.map(c=>`
+    <div class="chat-msg chat-user">${c.user}</div>
+    <div class="chat-msg chat-ai">${c.ai}</div>
+  `).join('');
+  el.scrollTop=el.scrollHeight;
+}
+
+async function sendAI() {
+  const input=document.getElementById('chat-input');
+  const prompt=input.value.trim();
+  if(!prompt) return;
+  input.value='';
+  STATE.aiQueriesThisQ++;
+
+  const msgs=document.getElementById('chat-messages');
+  msgs.innerHTML+=`<div class="chat-msg chat-user">${prompt}</div>
+    <div class="chat-thinking" id="thinking-indicator">מנתח...</div>`;
+  msgs.scrollTop=msgs.scrollHeight;
+
+  const reply=await getGeminiResponse(prompt);
+  document.getElementById('thinking-indicator')?.remove();
+  STATE.chatHistory.push({user:prompt,ai:reply});
+  renderChatHistory();
+}
+
+async function getGeminiResponse(prompt) {
+  try {
+    const df=STATE.filteredData;
+    const churned=df.filter(r=>isChurned(r));
+    const active=df.filter(r=>!isChurned(r));
+    const totalMRR=df.reduce((s,r)=>s+(+r.mrr_amount||0),0);
+    const churnMRR=churned.reduce((s,r)=>s+(+r.mrr_amount||0),0);
+
+    const countryMap={};
+    df.forEach(r=>{const c=r.country||'?';if(!countryMap[c])countryMap[c]=0;countryMap[c]++;});
+
+    const indChurnMap={};
+    df.forEach(r=>{
+      const ind=r.industry||'?';
+      if(!indChurnMap[ind]) indChurnMap[ind]={total:0,churned:0};
+      indChurnMap[ind].total++;
+      if(isChurned(r)) indChurnMap[ind].churned++;
+    });
+    const indChurnPct={};
+    Object.keys(indChurnMap).forEach(k=>{ indChurnPct[k]=(indChurnMap[k].churned/indChurnMap[k].total*100).toFixed(1)+'%'; });
+
+    const csatLow=df.filter(r=>+r.avg_csat<3.5).map(r=>+r.total_errors||0);
+    const csatHigh=df.filter(r=>+r.avg_csat>=3.5).map(r=>+r.total_errors||0);
+    const avg=arr=>arr.length?(arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(2):0;
+
+    const systemCtx=`אתה עוזר BI חכם עבור ניסוי מחקרי. הנה סיכום הדאטה:
+- סה"כ רשומות: ${df.length.toLocaleString()} | לקוחות: ${new Set(df.map(r=>r.account_id)).size.toLocaleString()}
+- פעילים: ${active.length.toLocaleString()} | נטשו: ${churned.length.toLocaleString()}
+- אחוז נטישה: ${df.length?(churned.length/df.length*100).toFixed(1):0}%
+- MRR פעיל: $${(active.reduce((s,r)=>s+(+r.mrr_amount||0),0)).toLocaleString()} | MRR אבוד: $${churnMRR.toLocaleString()} (${totalMRR?(churnMRR/totalMRR*100).toFixed(1):0}%)
+- מדינות (top 5): ${JSON.stringify(Object.fromEntries(Object.entries(countryMap).sort((a,b)=>b[1]-a[1]).slice(0,5)))}
+- תעשיות (% נטישה): ${JSON.stringify(indChurnPct)}
+- CSAT<3.5 תקלות ממוצע: ${avg(csatLow)} | CSAT≥3.5: ${avg(csatHigh)}
+ענה בעברית, קצר ומדויק. אל תמציא מספרים.`;
+
+    const history=STATE.chatHistory.flatMap(c=>[
+      {role:'user',parts:[{text:c.user}]},
+      {role:'model',parts:[{text:c.ai}]},
+    ]);
+
+    const body={
+      systemInstruction:{parts:[{text:systemCtx}]},
+      contents:[...history,{role:'user',parts:[{text:prompt}]}],
+      generationConfig:{maxOutputTokens:400,temperature:.3},
+    };
+
+    const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const data=await resp.json();
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text || 'לא התקבלה תשובה.';
+  } catch(e){ return `שגיאה: ${e.message}`; }
+}
+
+// ══════════════════════════════════════════════════════
+//  CLICK TRACKING
+// ══════════════════════════════════════════════════════
+function recordClick(name){ STATE.tempClicks[name]=(STATE.tempClicks[name]||0)+1; }
+
+// ══════════════════════════════════════════════════════
+//  SUMMARY
+// ══════════════════════════════════════════════════════
+function showSummary() {
+  showPage('summary');
+  document.getElementById('summary-thanks').textContent=
+    `תודה, ${STATE.participantId}. הנתונים נשמרו.`;
+
+  const mc=STATE.logs.filter(l=>l.Question_Type==='multiple');
+  const correct=mc.filter(l=>l.Is_Correct==1).length;
+  const avgTime=(STATE.logs.reduce((s,l)=>s+(+l.Time_Spent_Sec||0),0)/STATE.logs.length).toFixed(0);
+  const aiTotal=STATE.logs.reduce((s,l)=>s+(+l.AI_Queries||0),0);
+
+  document.getElementById('summary-kpi').innerHTML=`
+    <div class="kpi-card"><div class="kpi-label">שאלות סגורות</div><div class="kpi-value">${mc.length}</div></div>
+    <div class="kpi-card"><div class="kpi-label">תשובות נכונות</div><div class="kpi-value">${correct}</div></div>
+    <div class="kpi-card"><div class="kpi-label">זמן ממוצע / שאלה</div><div class="kpi-value">${avgTime}s</div></div>
+    <div class="kpi-card"><div class="kpi-label">שאלות לבוט</div><div class="kpi-value">${aiTotal}</div></div>
+  `;
+
+  const tbody=document.getElementById('summary-tbody');
+  tbody.innerHTML=STATE.logs.map((l,i)=>`
+    <tr>
+      <td>${i+1}</td>
+      <td style="max-width:200px;word-break:break-word">${l.Question_Text}</td>
+      <td style="max-width:160px;word-break:break-word">${l.Answer}</td>
+      <td>${l.Question_Type==='multiple'?(l.Is_Correct?'✅':'❌'):'—'}</td>
+      <td>${l.Time_Spent_Sec}</td>
+      <td>${l.AI_Queries}</td>
+    </tr>
+  `).join('');
+}
+
+function downloadCSV() {
+  const headers=Object.keys(STATE.logs[0]||{});
+  const rows=STATE.logs.map(l=>headers.map(h=>JSON.stringify(l[h]??'')).join(','));
+  const csv='\uFEFF'+[headers.join(','),...rows].join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download=`experiment_${STATE.participantId}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+</script>
+</body>
+</html>
