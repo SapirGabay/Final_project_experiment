@@ -245,7 +245,7 @@ textarea.answer:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.
 
 <script>
 const DATA_URL="https://raw.githubusercontent.com/SapirGabay/Finsl_project_experiment/refs/heads/main/data.csv";
-const GSHEET_WEBHOOK="ENTER_APPS_SCRIPT_URL_HERE";
+const GSHEET_WEBHOOK="https://script.google.com/macros/s/AKfycby8nzSR_NVGGi43E0WGIIPdJcNG0G2ldrNiDLaGoH7_TgAQapFMScIJzXvQ_A5WlJDf/exec";
 const VALID_CODES=new Set(Array.from({length:50},(_,i)=>`BGU${String(i+1).padStart(3,'0')}`));
 
 const QUESTIONS=[
@@ -576,7 +576,7 @@ function saveLog(ans){
 
 // GOOGLE SHEETS
 async function sendToGSheet(row){
-  if(!GSHEET_WEBHOOK||GSHEET_WEBHOOK==='ENTER_APPS_SCRIPT_URL_HERE')return;
+  if(!GSHEET_WEBHOOK||GSHEET_WEBHOOK==='https://script.google.com/macros/s/AKfycby8nzSR_NVGGi43E0WGIIPdJcNG0G2ldrNiDLaGoH7_TgAQapFMScIJzXvQ_A5WlJDf/exec')return;
   try{await fetch(GSHEET_WEBHOOK,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(row),mode:'no-cors'});}
   catch(e){console.warn('GSheet send failed',e);}
 }
